@@ -1,0 +1,134 @@
+// Two people agree a key over an insecure channel, then send a signed, sealed message.
+//
+// Everything here is deterministic: the secret keys are the ones RFC 7748 and RFC 8032 print, so
+// every line below is a value somebody else wrote down first and the whole run can be checked
+// against the specifications rather than against itself. A real program would bring these 32-byte
+// secrets from the platform's entropy source instead, which is the one thing this package
+// deliberately does not supply.
+
+import sh.sysl.monocypher.*
+import sysl.text.from_utf8
+
+// A byte slice does not render — `sysl.Display` for `[]u8` has no home in the library, so a program
+// that wants to read one says how. These bytes are text, so they go back through the UTF-8 decoder.
+text(b: []const u8) -> string = from_utf8(b).unwrap_or("<not utf-8>")
+
+nib(c: u8) -> u8 = if c >= 97 then c - 87 elif c >= 65 then c - 55 else c - 48
+
+unhex(s: string) -> []u8
+    val b = s.bytes
+    var out: []u8 = [0u8; b.len / 2]
+
+    for i in 0..<out.len do out[i] = nib(b[i * 2]) * 16 + nib(b[i * 2 + 1])
+
+    out
+end unhex
+
+// -- 1. the key exchange, RFC 7748 section 6.1 ---------------------------------------------------
+
+val alice_secret = unhex("77076d0a7318a57d3c16c17251b26645df4c2f87ebc0992ab177fba51db92c2a")
+val bob_secret = unhex("5dab087e624a8a4b79e17f8b83800ee66f3bb1292618b6fd1c2f8b27ff88e0eb")
+
+var alice_public: []u8 = [0u8; 32]
+var bob_public: []u8 = [0u8; 32]
+
+x25519_public_key(alice_public, alice_secret)
+x25519_public_key(bob_public, bob_secret)
+
+print("alice sends her public key: ", hex(alice_public))
+print("bob sends his:               ", hex(bob_public))
+
+// Each side reaches the same point from the other's public key and its own secret. Nobody watching
+// the channel saw either secret, and neither point above is enough to compute it.
+var alice_point: []u8 = [0u8; 32]
+var bob_point: []u8 = [0u8; 32]
+
+x25519(alice_point, alice_secret, bob_public)
+x25519(bob_point, bob_secret, alice_public)
+
+print("both reach the same point:   ", hex(alice_point))
+print("  and they agree:            ", equal(alice_point, bob_point))
+
+// A curve point is not a key -- its low bits are not uniformly distributed -- so it is hashed, and
+// the hash is what the cipher gets.
+var key: []u8 = [0u8; 32]
+
+blake2b(key, alice_point)
+print("hashed into a real key:      ", hex(key))
+
+// -- 2. the message is signed ---------------------------------------------------------------------
+
+var seed = unhex("9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60")
+var signing_key: []u8 = [0u8; 64]
+var verifying_key: []u8 = [0u8; 32]
+
+ed25519_key_pair(signing_key, verifying_key, seed)
+
+val message = "the tide comes in at four".bytes
+
+var signature: []u8 = [0u8; 64]
+
+ed25519_sign(signature, signing_key, message)
+
+print("")
+print("alice's verifying key:       ", hex(verifying_key))
+print("she signs the message:       ", hex(signature)[0..<32], "...")
+
+// -- 3. and then sealed ---------------------------------------------------------------------------
+
+// A nonce must never repeat under one key. A real program draws a fresh one at random for every
+// message; this one is fixed so the output can be checked.
+val nonce = unhex("404142434445464748494a4b4c4d4e4f5051525354555657")
+val envelope = "to:bob".bytes
+
+var cipher: []u8 = [0u8; 25]
+var tag: []u8 = [0u8; 16]
+
+lock(cipher, tag, key, nonce, envelope, message)
+
+print("")
+print("what goes on the wire:       ", hex(cipher))
+print("  with the tag:              ", hex(tag))
+print("  and the envelope in clear: ", text(envelope))
+
+// -- 4. bob opens it ------------------------------------------------------------------------------
+
+var opened: []u8 = [0u8; 25]
+
+print("")
+
+if !unlock(opened, tag, key, nonce, envelope, cipher) then
+    print("bob rejects it")
+elif !ed25519_check(signature, verifying_key, opened) then
+    print("bob decrypts it but it is not alice's")
+else
+    print("bob opens it:                ", text(opened))
+
+// -- 5. and rejects one that was tampered with ----------------------------------------------------
+
+var tampered = unhex(hex(cipher))
+
+tampered[0] = tampered[0] ^ 1
+
+print("")
+
+if unlock(opened, tag, key, nonce, envelope, tampered) then
+    print("a flipped bit got through -- this should be unreachable")
+else
+    print("one bit flipped in the ciphertext and bob rejects it")
+
+// Altering the envelope is caught too, and that is the part people forget: `ad` is authenticated
+// even though it travels in the clear.
+if unlock(opened, tag, key, nonce, "to:eve".bytes, cipher) then
+    print("a redirected envelope got through -- this should be unreachable")
+else
+    print("the envelope rewritten to eve and bob rejects that too")
+
+// The secrets are wiped rather than left in memory for whatever reads the process next.
+wipe(key)
+wipe(signing_key)
+wipe(alice_point)
+wipe(bob_point)
+
+print("")
+print("keys wiped:                  ", hex(key))

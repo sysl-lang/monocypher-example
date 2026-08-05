@@ -1,0 +1,13 @@
+// A one-file program that depends on a fetched package.
+//
+// The manifest exists only for the `dependencies` block: a single-file program with no dependencies
+// needs no `package.hocon` at all and gets every default (`packages.md §1`).
+
+package {
+  name    = "monocypher-example"
+  version = "0.1.0"
+}
+
+dependencies {
+  monocypher { git = "github.com/sysl-lang/monocypher", version = "0.2.0" }
+}
