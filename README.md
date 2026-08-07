@@ -1,6 +1,6 @@
 # monocypher-example
 
-**A worked example, not a library.** One [sysl](https://github.com/edadma/sysl) program that depends
+**A worked example, not a library.** One [sysl](https://github.com/sysl-lang/sysl) program that depends
 on [`sysl-lang/monocypher`](https://github.com/sysl-lang/monocypher) and does the thing you would
 actually use it for: two people agree a key over an insecure channel, then send a signed, sealed
 message that a third party cannot read, forge or redirect.
