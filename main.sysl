@@ -17,7 +17,7 @@ nib(c: u8) -> u8 = if c >= 97 then c - 87 elif c >= 65 then c - 55 else c - 48
 
 unhex(s: string) -> []u8
     val b = s.bytes
-    var out: []u8 = [0u8; b.len / 2]
+    var out: []u8 = [0; b.len / 2]
 
     for i in 0..<out.len do out[i] = nib(b[i * 2]) * 16 + nib(b[i * 2 + 1])
 
@@ -29,8 +29,8 @@ end unhex
 val alice_secret = unhex("77076d0a7318a57d3c16c17251b26645df4c2f87ebc0992ab177fba51db92c2a")
 val bob_secret = unhex("5dab087e624a8a4b79e17f8b83800ee66f3bb1292618b6fd1c2f8b27ff88e0eb")
 
-var alice_public: []u8 = [0u8; 32]
-var bob_public: []u8 = [0u8; 32]
+var alice_public: []u8 = [0; 32]
+var bob_public: []u8 = [0; 32]
 
 x25519_public_key(alice_public, alice_secret)
 x25519_public_key(bob_public, bob_secret)
@@ -40,8 +40,8 @@ print("bob sends his:               ", hex(bob_public))
 
 // Each side reaches the same point from the other's public key and its own secret. Nobody watching
 // the channel saw either secret, and neither point above is enough to compute it.
-var alice_point: []u8 = [0u8; 32]
-var bob_point: []u8 = [0u8; 32]
+var alice_point: []u8 = [0; 32]
+var bob_point: []u8 = [0; 32]
 
 x25519(alice_point, alice_secret, bob_public)
 x25519(bob_point, bob_secret, alice_public)
@@ -51,7 +51,7 @@ print("  and they agree:            ", equal(alice_point, bob_point))
 
 // A curve point is not a key -- its low bits are not uniformly distributed -- so it is hashed, and
 // the hash is what the cipher gets.
-var key: []u8 = [0u8; 32]
+var key: []u8 = [0; 32]
 
 blake2b(key, alice_point)
 print("hashed into a real key:      ", hex(key))
@@ -59,14 +59,14 @@ print("hashed into a real key:      ", hex(key))
 // -- 2. the message is signed ---------------------------------------------------------------------
 
 var seed = unhex("9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60")
-var signing_key: []u8 = [0u8; 64]
-var verifying_key: []u8 = [0u8; 32]
+var signing_key: []u8 = [0; 64]
+var verifying_key: []u8 = [0; 32]
 
 ed25519_key_pair(signing_key, verifying_key, seed)
 
 val message = "the tide comes in at four".bytes
 
-var signature: []u8 = [0u8; 64]
+var signature: []u8 = [0; 64]
 
 ed25519_sign(signature, signing_key, message)
 
@@ -81,8 +81,8 @@ print("she signs the message:       ", hex(signature)[0..<32], "...")
 val nonce = unhex("404142434445464748494a4b4c4d4e4f5051525354555657")
 val envelope = "to:bob".bytes
 
-var cipher: []u8 = [0u8; 25]
-var tag: []u8 = [0u8; 16]
+var cipher: []u8 = [0; 25]
+var tag: []u8 = [0; 16]
 
 lock(cipher, tag, key, nonce, envelope, message)
 
@@ -93,7 +93,7 @@ print("  and the envelope in clear: ", text(envelope))
 
 // -- 4. bob opens it ------------------------------------------------------------------------------
 
-var opened: []u8 = [0u8; 25]
+var opened: []u8 = [0; 25]
 
 print("")
 
