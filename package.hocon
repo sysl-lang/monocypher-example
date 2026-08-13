@@ -5,9 +5,9 @@
 
 package {
   name    = "monocypher-example"
-  version = "0.1.0"
+  version = "0.1.1"
 }
 
 dependencies {
-  monocypher { git = "github.com/sysl-lang/monocypher", version = "0.2.2" }
+  monocypher { git = "github.com/sysl-lang/monocypher", version = "0.3.0" }
 }
