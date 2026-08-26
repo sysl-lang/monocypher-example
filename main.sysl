@@ -47,7 +47,7 @@ x25519(alice_point, alice_secret, bob_public)
 x25519(bob_point, bob_secret, alice_public)
 
 print("both reach the same point:   ", hex(alice_point))
-print("  and they agree:            ", equal(alice_point, bob_point))
+print("  and they agree:            ", alice_point == bob_point)
 
 // A curve point is not a key -- its low bits are not uniformly distributed -- so it is hashed, and
 // the hash is what the cipher gets.
