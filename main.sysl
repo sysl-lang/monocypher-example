@@ -7,19 +7,21 @@
 // deliberately does not supply.
 
 import sh.sysl.monocypher.*
+import sysl.encoding.{hex_decode, hex_decoded_len}
 import sysl.text.from_utf8
 
-// A byte slice does not render — `sysl.Display` for `[]u8` has no home in the library, so a program
-// that wants to read one says how. These bytes are text, so they go back through the UTF-8 decoder.
+// A byte slice *does* render — `Display for []T` covers it — but it renders as the list of numbers it
+// is, and these bytes are text. So they go back through the UTF-8 decoder instead. (This comment
+// used to say the library had no `Display` for `[]u8`, which stopped being true.)
 text(b: []const u8) -> string = from_utf8(b).unwrap_or("<not utf-8>")
 
-nib(c: u8) -> u8 = if c >= 97 then c - 87 elif c >= 65 then c - 55 else c - 48
-
+// The constants below are the ones the RFCs print, so a typo in one of them should be loud rather
+// than silently a different key: `hex_decode` refuses a bad digit and an odd length, where the
+// hand-rolled reader this replaces would have folded either into a wrong byte.
 unhex(s: string) -> []u8
-    val b = s.bytes
-    var out: []u8 = [0; b.len / 2]
+    var out: []u8 = [0; hex_decoded_len(s.bytes)]
 
-    for i in 0..<out.len do out[i] = nib(b[i * 2]) * 16 + nib(b[i * 2 + 1])
+    hex_decode(s.bytes, out).expect("a hexadecimal constant in this file")
 
     out
 end unhex
